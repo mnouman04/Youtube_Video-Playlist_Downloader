@@ -1,355 +1,461 @@
 import streamlit as st
 import yt_dlp
 import os
-import time
+import re
 from itertools import islice
-import json
+import pandas as pd
+import time
 
-# Configure the page settings
+# Configure Streamlit page
 st.set_page_config(
     page_title="YouTube Downloader",
-    page_icon="🎬",
+    page_icon="▶️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Theme configuration
-def set_theme():
-    # Set theme in session state
-    if 'theme' not in st.session_state:
-        st.session_state.theme = 'light'
-
-    # Apply theme CSS
-    theme_css = f"""
-    <style>
-        [data-testid="stAppViewContainer"] {{
-            background-color: {st.session_state.background_color};
-            color: {st.session_state.text_color};
-        }}
-        
-        .stButton>button {{
-            background-color: {st.session_state.primary_color};
-            color: {st.session_state.button_text_color};
-            border: 1px solid {st.session_state.border_color};
-        }}
-        
-        .stTextInput>div>div>input {{
-            background-color: {st.session_state.secondary_background};
-            color: {st.session_state.text_color};
-            border: 1px solid {st.session_state.border_color};
-        }}
-        
-        .stTable {{
-            background-color: {st.session_state.secondary_background};
-            color: {st.session_state.text_color};
-        }}
-        
-        .stProgress>div>div>div {{
-            background-color: {st.session_state.primary_color};
-        }}
-        
-        .sidebar .sidebar-content {{
-            background-color: {st.session_state.secondary_background};
-        }}
-        
-        [data-testid="stHeader"] {{
-            background-color: {st.session_state.secondary_background};
-        }}
-    </style>
-    """
-    st.markdown(theme_css, unsafe_allow_html=True)
-
-# Initialize theme
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'light'
-
-# Set color variables based on theme
-def set_theme_colors():
-    if st.session_state.theme == 'dark':
-        st.session_state.background_color = "#1a1a1a"
-        st.session_state.text_color = "#ffffff"
-        st.session_state.primary_color = "#4a4a4a"
-        st.session_state.secondary_background = "#2d2d2d"
-        st.session_state.button_text_color = "#ffffff"
-        st.session_state.border_color = "#595959"
-    else:
-        st.session_state.background_color = "#ffffff"
-        st.session_state.text_color = "#ff5733"
-        st.session_state.primary_color = "#f0f2f6"
-        st.session_state.secondary_background = "#f8f9fa"
-        st.session_state.button_text_color = "#000000"
-        st.session_state.border_color = "#ced4da"
-
-# Toggle theme function
-def toggle_theme():
-    st.session_state.theme = 'dark' if st.session_state.theme == 'light' else 'light'
-    set_theme_colors()
-    set_theme()
-
-# Initial theme setup
-set_theme_colors()
-set_theme()
-
-# Initialize session state variables
-if 'logs' not in st.session_state:
-    st.session_state.logs = []
-
-def add_log(message):
-    """Add log message to the session state"""
-    timestamp = time.strftime("%H:%M:%S")
-    st.session_state.logs.append(f"[{timestamp}] {message}")
-    
-def display_logs():
-    """Display all logs in the UI"""
-    log_container = st.container()
-    with log_container:
-        for log in st.session_state.logs:
-            st.text(log)
-
-def get_video_info(url):
-    """Get info for either a single video or a playlist"""
-    add_log(f"Fetching information for: {url}")
-    
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
+# Custom CSS for improved styling
+st.markdown("""
+<style>
+    .main-title {
+        font-size: 3rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 1rem !important;
+        text-align: center;
     }
-    
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(url, download=False)
-            
-            # Check if it's a playlist or a single video
-            if 'entries' in info:
-                add_log(f"Found playlist: {info.get('title', 'Untitled Playlist')}")
-                add_log(f"Total videos in playlist: {len(info['entries'])}")
-                return {'type': 'playlist', 'info': info}
-            else:
-                add_log(f"Found single video: {info.get('title', 'Untitled Video')}")
-                return {'type': 'video', 'info': info}
-        except Exception as e:
-            add_log(f"Error: {str(e)}")
-            return {'type': 'error', 'error': str(e)}
-
-def download_single_video(video_info, include_thumbnail, include_metadata, include_subtitles):
-    """Download a single video"""
-    if not os.path.exists('downloads'):
-        os.makedirs('downloads')
-    
-    ydl_opts = {
-        'format': 'bestvideo+bestaudio/best',
-        'outtmpl': 'downloads/%(title)s.%(ext)s',
-        'writethumbnail': include_thumbnail,
-        'writeinfojson': include_metadata,
-        'writesubtitles': include_subtitles,
+    .download-progress {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 0.5rem;
     }
-    
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    def progress_hook(d):
-        if d['status'] == 'downloading':
-            p = d.get('_percent_str', '0%').replace('%', '')
-            try:
-                progress_bar.progress(float(p) / 100)
-                status_text.text(f"Downloading: {d.get('_percent_str', '0%')} complete")
-            except:
-                pass
-        elif d['status'] == 'finished':
-            progress_bar.progress(1.0)
-            status_text.text(f"Download complete! Processing file...")
-            add_log(f"Finished downloading: {d.get('filename', 'file')}")
-    
-    ydl_opts['progress_hooks'] = [progress_hook]
-    
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            add_log(f"Starting download of: {video_info.get('title', 'Unknown video')}")
-            ydl.download([video_info['webpage_url']])
-            add_log("Download completed successfully")
-            return True
-        except Exception as e:
-            add_log(f"Error during download: {str(e)}")
-            return False
+    .stProgress > div > div > div > div {
+        background-image: linear-gradient(to right, #ff4b4b, #ff9d4b, #ffdb4b) !important;
+    }
+    .small-text {
+        font-size: 0.8rem;
+        color: #888888;
+    }
+    .result-box {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin: 1rem 0;
+    }
+    .success {
+        background-color: rgba(0, 200, 0, 0.1);
+        border-left: 5px solid rgba(0, 200, 0, 0.5);
+    }
+    .error {
+        background-color: rgba(255, 0, 0, 0.1);
+        border-left: 5px solid rgba(255, 0, 0, 0.5);
+    }
+</style>
+""", unsafe_allow_html=True)
 
-def download_playlist(playlist_info, start_idx, end_idx, include_thumbnail, include_metadata, include_subtitles):
-    """Download videos from a playlist"""
-    if not os.path.exists('downloads'):
-        os.makedirs('downloads')
-    
-    entries = playlist_info['entries']
-    selected_entries = list(islice(entries, start_idx-1, end_idx))
-    total_videos = len(selected_entries)
-    
+# Helper functions
+def sanitize_filename(title):
+    """Sanitize filename the way yt-dlp does it"""
+    # Replace problematic characters
+    title = re.sub(r'[\\/*?"<>|]', '', title)
+    # Replace colons and forward slashes
+    title = title.replace(':', ' -').replace('/', '_')
+    # Remove any leading/trailing spaces and dots
+    title = title.strip('. ')
+    return title
+
+def ensure_directories_exist(content_title=None):
+    """Create necessary directories if they don't exist"""
+    # Use a configurable base directory
+    base_dir = st.session_state.get("download_path", "C:/YoutubeScraped")
+
+    # Create base directory if it doesn't exist
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
+        st.info(f"Created base directory: {base_dir}")
+
+    # If we have content title, create a folder for it
+    if content_title:
+        # Sanitize content title for folder name
+        safe_title = sanitize_filename(content_title)
+        content_dir = os.path.join(base_dir, safe_title)
+
+        # Create content directory if it doesn't exist
+        if not os.path.exists(content_dir):
+            os.makedirs(content_dir)
+
+        # Create subdirectories for different content types
+        subdirs = ['videos', 'thumbnails', 'metadata', 'subtitles']
+        for subdir in subdirs:
+            full_path = os.path.join(content_dir, subdir)
+            if not os.path.exists(full_path):
+                os.makedirs(full_path)
+
+        return content_dir
+
+    return base_dir
+
+def get_content_info(url):
+    """Get information about the YouTube content (video or playlist)"""
+    with st.spinner("Fetching content information..."):
+        ydl_opts = {
+            'extract_flat': 'in_playlist',
+            'quiet': True,
+            'no_warnings': True,
+        }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                result = ydl.extract_info(url, download=False)
+                if 'entries' in result:  # It's a playlist
+                    return {'type': 'playlist', 'entries': result['entries'], 'title': result.get('title', 'Unknown Playlist')}
+                else:  # It's a single video
+                    return {'type': 'video', 'entries': [result], 'title': result.get('title', 'Unknown Video')}
+        except Exception as e:
+            st.error(f"Error fetching content: {str(e)}")
+            return {'type': 'error', 'entries': [], 'title': 'Error'}
+
+def download_videos(entries, start, end, options, content_dir, playlist_title=None):
+    """Download selected videos with specified options"""
+    selected = list(islice(entries, start, end))
     success_count = 0
     failed_count = 0
     failed_videos = []
+    total = len(selected)
     
-    overall_progress = st.progress(0)
-    video_progress = st.progress(0)
-    overall_status = st.empty()
-    video_status = st.empty()
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    download_status = st.empty()
     
-    for idx, entry in enumerate(selected_entries):
-        overall_progress.progress(idx / total_videos)
-        overall_status.text(f"Overall Progress: {idx}/{total_videos} videos")
+    # Prepare format string based on quality
+    if options['video_quality'] == 'best':
+        format_str = 'bestvideo+bestaudio/best'
+    elif options['video_quality'] == 'medium':
+        format_str = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
+    elif options['video_quality'] == 'worst':
+        format_str = 'worstvideo+worstaudio/worst'
+    else:  # 'none' - audio only
+        format_str = 'bestaudio/best'
+
+    # Prepare directory paths
+    video_dir = os.path.join(content_dir, 'videos')
+    thumbnail_dir = os.path.join(content_dir, 'thumbnails')
+    metadata_dir = os.path.join(content_dir, 'metadata')
+    subtitles_dir = os.path.join(content_dir, 'subtitles')
+
+    # Prepare output templates based on content type
+    filename_template = '%(playlist_index)s. %(title)s' if playlist_title and len(selected) > 1 else '%(title)s'
+
+    # Define a custom progress hook
+    def progress_hook(d):
+        if d['status'] == 'downloading':
+            download_status.markdown(f"Downloading: **{os.path.basename(d['filename'])}** - {d.get('_percent_str', '0%')}")
+        elif d['status'] == 'finished':
+            download_status.markdown(f"✅ Completed: **{os.path.basename(d['filename'])}**")
+
+    # Configure yt-dlp options
+    ydl_opts = {
+        'format': format_str,
+        'progress_hooks': [progress_hook],
+        'noplaylist': True,  # We're handling playlist items individually
+        'restrictfilenames': True,
+        'windowsfilenames': True,
+        'outtmpl': {
+            'default': os.path.join(video_dir, filename_template + '.%(ext)s'),
+            'thumbnail': os.path.join(thumbnail_dir, filename_template + '.%(ext)s'),
+            'infojson': os.path.join(metadata_dir, filename_template + '.info.json'),
+            'subtitle': os.path.join(subtitles_dir, filename_template + '.%(ext)s'),
+        }
+    }
+
+    # Set options based on user selections
+    if not options['video']:
+        ydl_opts['skip_download'] = True
+
+    if options['thumbnail']:
+        ydl_opts['writethumbnail'] = True
+
+    if options['metadata']:
+        ydl_opts['writeinfojson'] = True
+
+    if options['subtitles']:
+        ydl_opts['writesubtitles'] = True
+        ydl_opts['writeautomaticsub'] = True
+        ydl_opts['subtitleslangs'] = ['en']  # Default to English
+
+    for index, entry in enumerate(selected):
+        try:
+            status_text.markdown(f"Processing {index+1} of {total}: **{entry['title']}**")
+            progress_bar.progress((index) / total)
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([entry['url'] if 'url' in entry else entry['webpage_url']])
+                
+            success_count += 1
+        except Exception as e:
+            st.error(f"Error downloading: {entry['title']}")
+            st.error(f"Reason: {str(e)}")
+            failed_count += 1
+            failed_videos.append(entry['title'])
+            time.sleep(1)  # Pause to let user see the error
+            continue
+            
+    progress_bar.progress(1.0)
+    status_text.markdown("✅ **Download complete!**")
+    download_status.empty()
+    
+    # Return summary information
+    return {
+        'success_count': success_count,
+        'failed_count': failed_count,
+        'failed_videos': failed_videos
+    }
+
+# Initialize session state variables
+if 'download_path' not in st.session_state:
+    st.session_state.download_path = "C:/YoutubeScraped"
+if 'video_data' not in st.session_state:
+    st.session_state.video_data = None
+if 'content_info' not in st.session_state:
+    st.session_state.content_info = None
+if 'download_results' not in st.session_state:
+    st.session_state.download_results = None
+if 'selected_videos' not in st.session_state:
+    st.session_state.selected_videos = []
+
+# Sidebar for settings
+with st.sidebar:
+    st.image("https://img.icons8.com/color/96/youtube-play.png", width=80)
+    st.title("Settings")
+    
+    st.session_state.download_path = st.text_input("Download Path", value=st.session_state.download_path)
+    
+    st.subheader("Download Options")
+    video_option = st.checkbox("Download Videos", value=True)
+    
+    video_quality = "best"
+    if video_option:
+        video_quality = st.radio(
+            "Video Quality",
+            ["best", "medium", "worst"],
+            horizontal=True
+        )
+    
+    thumbnail_option = st.checkbox("Download Thumbnails", value=True)
+    metadata_option = st.checkbox("Download Metadata", value=True)
+    subtitles_option = st.checkbox("Download Subtitles", value=True)
+    
+    st.divider()
+    
+    # Theme selection
+    theme = st.radio(
+        "Theme",
+        ["Light", "Dark"],
+        horizontal=True
+    )
+    
+    # Apply theme
+    if theme == "Dark":
+        st.markdown("""
+        <style>
+            .stApp {
+                background-color: #121212;
+                color: #ffffff;
+            }
+            .small-text {
+                color: #aaaaaa !important;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<p class='small-text'>YouTube Downloader v1.0</p>", unsafe_allow_html=True)
+
+# Main content area
+st.markdown("<h1 class='main-title'>🎬 YouTube Downloader</h1>", unsafe_allow_html=True)
+
+tab1, tab2, tab3 = st.tabs(["📋 URL Input", "🎞️ Select Videos", "📥 Download"])
+
+# Tab 1: URL Input
+with tab1:
+    st.write("Enter a YouTube video or playlist URL to begin.")
+    url = st.text_input("YouTube URL", placeholder="https://www.youtube.com/watch?v=...")
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        fetch_button = st.button("Fetch Content", type="primary", use_container_width=True)
+    
+    with col2:
+        pass
+    
+    if fetch_button and url:
+        content_info = get_content_info(url)
+        st.session_state.content_info = content_info
         
-        video_title = entry.get('title', f"Video {idx+1}")
-        add_log(f"Processing video {idx+1}/{total_videos}: {video_title}")
+        if content_info['type'] == 'error':
+            st.error("Failed to fetch content. Please check the URL and try again.")
         
-        ydl_opts = {
-            'format': 'bestvideo+bestaudio/best',
-            'outtmpl': f'downloads/{idx+1}. %(title)s.%(ext)s',
-            'writethumbnail': include_thumbnail,
-            'writeinfojson': include_metadata,
-            'writesubtitles': include_subtitles,
+        elif not content_info['entries']:
+            st.warning("No content found at the provided URL.")
+        
+        else:
+            st.session_state.video_data = []
+            for idx, entry in enumerate(content_info['entries']):
+                st.session_state.video_data.append({
+                    'index': idx + 1,
+                    'title': entry['title'],
+                    'duration': entry.get('duration_string', 'Unknown'),
+                    'id': entry.get('id', ''),
+                    'selected': True  # Default to selected
+                })
+            
+            # Update selected videos
+            st.session_state.selected_videos = [i for i in range(len(content_info['entries']))]
+            
+            st.success(f"Found content: {content_info['title']}")
+            if content_info['type'] == 'playlist':
+                st.info(f"This is a playlist with {len(content_info['entries'])} videos.")
+            else:
+                st.info("This is a single video.")
+                
+            st.markdown("👉 **Go to the 'Select Videos' tab to continue.**")
+
+# Tab 2: Select Videos
+with tab2:
+    if st.session_state.video_data:
+        st.write("Select the videos you want to download:")
+        
+        # Add select/deselect all buttons
+        col1, col2, col3 = st.columns([1, 1, 4])
+        with col1:
+            if st.button("Select All", use_container_width=True):
+                for video in st.session_state.video_data:
+                    video['selected'] = True
+                st.session_state.selected_videos = list(range(len(st.session_state.video_data)))
+                st.rerun()
+        
+        with col2:
+            if st.button("Deselect All", use_container_width=True):
+                for video in st.session_state.video_data:
+                    video['selected'] = False
+                st.session_state.selected_videos = []
+                st.rerun()
+        
+        # Create a DataFrame for display
+        df = pd.DataFrame(st.session_state.video_data)
+        
+        # Use Streamlit's dataframe for selection
+        edited_df = st.data_editor(
+            df,
+            column_config={
+                "index": st.column_config.NumberColumn("No.", help="Video number"),
+                "title": st.column_config.TextColumn("Title", help="Video title"),
+                "duration": st.column_config.TextColumn("Duration", help="Video duration"),
+                "id": st.column_config.TextColumn("ID", help="Video ID"),
+                "selected": st.column_config.CheckboxColumn("Download", help="Select to download")
+            },
+            disabled=["index", "title", "duration", "id"],
+            hide_index=True,
+            use_container_width=True
+        )
+        
+        # Update the session state with selections
+        st.session_state.selected_videos = edited_df[edited_df['selected']].index.tolist()
+        
+        st.markdown(f"**{len(st.session_state.selected_videos)} videos selected for download**")
+        
+        if st.session_state.selected_videos:
+            st.markdown("👉 **Go to the 'Download' tab to start the download.**")
+    else:
+        st.info("Enter a URL in the URL Input tab first.")
+
+# Tab 3: Download
+with tab3:
+    if st.session_state.content_info and st.session_state.selected_videos:
+        st.write("Start downloading the selected videos:")
+        
+        download_options = {
+            'video': video_option,
+            'video_quality': video_quality,
+            'thumbnail': thumbnail_option,
+            'metadata': metadata_option,
+            'subtitles': subtitles_option
         }
         
-        def progress_hook(d):
-            if d['status'] == 'downloading':
-                p = d.get('_percent_str', '0%').replace('%', '')
-                try:
-                    video_progress.progress(float(p) / 100)
-                    video_status.text(f"Video {idx+1}: {p}% complete")
-                except:
-                    pass
-            elif d['status'] == 'finished':
-                video_progress.progress(1.0)
-                video_status.text(f"Video {idx+1}: Download complete!")
+        st.write("Download Options:")
         
-        ydl_opts['progress_hooks'] = [progress_hook]
+        cols = st.columns([1, 1, 1, 1])
+        with cols[0]:
+            st.write(f"📹 Videos: {'✅' if download_options['video'] else '❌'}")
+        with cols[1]:
+            st.write(f"🖼️ Thumbnails: {'✅' if download_options['thumbnail'] else '❌'}")
+        with cols[2]:
+            st.write(f"📄 Metadata: {'✅' if download_options['metadata'] else '❌'}")
+        with cols[3]:
+            st.write(f"💬 Subtitles: {'✅' if download_options['subtitles'] else '❌'}")
         
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            try:
-                ydl.download([entry['url']])
-                success_count += 1
-                add_log(f"Successfully downloaded: {video_title}")
-            except Exception as e:
-                failed_count += 1
-                failed_videos.append(video_title)
-                add_log(f"Failed to download {video_title}: {str(e)}")
+        if download_options['video']:
+            st.write(f"🎥 Quality: **{download_options['video_quality'].upper()}**")
         
-        # Reset video progress for next video
-        video_progress.progress(0)
-    
-    # Final update for overall progress
-    overall_progress.progress(1.0)
-    overall_status.text(f"Download Complete: {success_count} succeeded, {failed_count} failed")
-    
-    # Report summary
-    add_log(f"Download Summary: {success_count} succeeded, {failed_count} failed")
-    
-    if failed_videos:
-        add_log("The following videos could not be downloaded:")
-        for i, video in enumerate(failed_videos, 1):
-            add_log(f"{i}. {video}")
-    
-    return success_count, failed_count, failed_videos
-
-# UI Layout
-st.sidebar.title('Settings')
-st.sidebar.button('Toggle Theme 🌓', on_click=toggle_theme)
-
-# Main content
-st.title('YouTube Video Downloader')
-st.write('Download videos or playlists from YouTube')
-
-# URL input
-url = st.text_input('Enter YouTube URL (video or playlist):', placeholder='https://www.youtube.com/watch?v=...')
-
-# Download options
-st.subheader('Download Options')
-col1, col2, col3 = st.columns(3)
-include_thumbnail = col1.checkbox('Download thumbnail', value=True)
-include_metadata = col2.checkbox('Include metadata', value=True)
-include_subtitles = col3.checkbox('Download subtitles', value=True)
-
-# Fetch info button
-if st.button('Fetch Info'):
-    if url:
-        with st.spinner('Fetching video information...'):
-            result = get_video_info(url)
-            st.session_state.url_result = result
-    else:
-        st.error('Please enter a valid URL')
-
-# Display results and download options
-if 'url_result' in st.session_state:
-    result = st.session_state.url_result
-    
-    if result['type'] == 'error':
-        st.error(f"Error: {result['error']}")
-    
-    elif result['type'] == 'video':
-        st.subheader('Video Information')
-        video_info = result['info']
+        st.write(f"🗂️ Download Path: **{st.session_state.download_path}**")
         
-        # Display video details
-        st.write(f"*Title:* {video_info.get('title', 'Unknown')}")
-        st.write(f"*Duration:* {video_info.get('duration_string', 'Unknown')}")
-        st.write(f"*Channel:* {video_info.get('uploader', 'Unknown')}")
+        download_button = st.button("Start Download", type="primary", use_container_width=True)
         
-        if st.button('Download Video'):
-            with st.spinner('Downloading video...'):
-                success = download_single_video(
-                    video_info, 
-                    include_thumbnail, 
-                    include_metadata, 
-                    include_subtitles
-                )
-                if success:
-                    st.success('Video downloaded successfully!')
-                else:
-                    st.error('Failed to download video.')
-    
-    elif result['type'] == 'playlist':
-        st.subheader('Playlist Information')
-        playlist_info = result['info']
-        entries = playlist_info.get('entries', [])
-        
-        # Display playlist details
-        st.write(f"*Playlist Title:* {playlist_info.get('title', 'Unknown')}")
-        st.write(f"*Total Videos:* {len(entries)}")
-        
-        # Create a table to display videos
-        st.subheader('Videos in Playlist')
-        
-        # Display videos in a data table
-        video_data = []
-        for i, entry in enumerate(entries, 1):
-            video_data.append({
-                "No.": i,
-                "Title": entry.get('title', f'Video {i}'),
-                "Duration": entry.get('duration_string', 'Unknown')
-            })
-        
-        st.table(video_data)
-        
-        # Video range selection
-        col1, col2 = st.columns(2)
-        start_idx = col1.number_input('Start from video #', min_value=1, max_value=len(entries), value=1)
-        end_idx = col2.number_input('End at video #', min_value=start_idx, max_value=len(entries), value=min(5, len(entries)))
-        
-        if st.button('Download Selected Videos'):
-            with st.spinner(f'Downloading videos {start_idx} to {end_idx}...'):
-                success_count, failed_count, failed_videos = download_playlist(
-                    playlist_info, 
-                    start_idx, 
-                    end_idx, 
-                    include_thumbnail, 
-                    include_metadata, 
-                    include_subtitles
-                )
+        if download_button:
+            content_info = st.session_state.content_info
+            content_type = content_info['type']
+            entries = content_info['entries']
+            title = content_info['title']
             
-                if failed_count == 0:
-                    st.success(f'All {success_count} videos downloaded successfully!')
-                else:
-                    st.warning(f'{success_count} videos downloaded successfully. {failed_count} videos failed.')
+            # Create selected entries list
+            selected_entries = [entries[i] for i in st.session_state.selected_videos]
+            
+            # Create content directory with appropriate folder structure
+            content_dir = ensure_directories_exist(title)
+            
+            with st.expander("Download Details", expanded=True):
+                st.write(f"Content type: **{content_type.capitalize()}**")
+                st.write(f"Title: **{title}**")
+                st.write(f"Selected videos: **{len(selected_entries)}**")
+                st.write(f"Download directory: **{content_dir}**")
+                
+                # Download the selected videos
+                download_results = download_videos(
+                    selected_entries, 
+                    0, 
+                    len(selected_entries), 
+                    download_options, 
+                    content_dir,
+                    playlist_title=title if content_type == 'playlist' else None
+                )
+                
+                st.session_state.download_results = download_results
+                
+                # Display download summary
+                st.subheader("Download Summary")
+                st.markdown(f"✅ Successfully downloaded: **{download_results['success_count']}** videos")
+                st.markdown(f"❌ Failed to download: **{download_results['failed_count']}** videos")
+                
+                if download_results['failed_videos']:
+                    with st.expander("Failed Videos"):
+                        for i, video in enumerate(download_results['failed_videos'], 1):
+                            st.write(f"{i}. {video}")
+                
+                st.success(f"Download completed! Files saved to: **{content_dir}**")
+                
+                # Button to open the download directory
+                if st.button("📂 Open Download Directory", use_container_width=True):
+                    os.startfile(content_dir)
+    else:
+        if not st.session_state.content_info:
+            st.info("Enter a URL in the URL Input tab first.")
+        elif not st.session_state.selected_videos:
+            st.warning("No videos selected. Please select videos in the 'Select Videos' tab.")
 
-# Display logs section
-st.subheader('Logs')
-logs_placeholder = st.empty()
-
-# Display logs inside a container with scrolling
-with logs_placeholder.container():
-    display_logs()
+# Add a footer
+st.divider()
+st.markdown(
+    """
+    <div style="text-align: center">
+        <p class="small-text">Built by Nouman & Gohar | using Streamlit and yt-dlp</p>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
