@@ -1,0 +1,19 @@
+[project]
+name = "youtube-video-playlist-downloader"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "gellahi",email = "gellahi.dev@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "requests (>=2.32.3,<3.0.0)",
+    "yt-dlp (>=2025.2.19,<2026.0.0)",
+    "streamlit (>=1.43.2,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

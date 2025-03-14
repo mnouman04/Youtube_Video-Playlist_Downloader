@@ -244,27 +244,6 @@ with st.sidebar:
     
     st.divider()
     
-    # Theme selection
-    theme = st.radio(
-        "Theme",
-        ["Light", "Dark"],
-        horizontal=True
-    )
-    
-    # Apply theme
-    if theme == "Dark":
-        st.markdown("""
-        <style>
-            .stApp {
-                background-color: #121212;
-                color: #ffffff;
-            }
-            .small-text {
-                color: #aaaaaa !important;
-            }
-        </style>
-        """, unsafe_allow_html=True)
-    
     st.markdown("<p class='small-text'>YouTube Downloader v1.0</p>", unsafe_allow_html=True)
 
 # Main content area
