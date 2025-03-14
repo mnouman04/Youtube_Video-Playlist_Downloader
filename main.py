@@ -6,7 +6,6 @@ from itertools import islice
 import pandas as pd
 import time
 
-# Configure Streamlit page
 st.set_page_config(
     page_title="YouTube Downloader",
     page_icon="▶️",
@@ -14,7 +13,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for improved styling
 st.markdown("""
 <style>
     .main-title {
@@ -51,38 +49,32 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Helper functions
 def sanitize_filename(title):
     """Sanitize filename the way yt-dlp does it"""
-    # Replace problematic characters
     title = re.sub(r'[\\/*?"<>|]', '', title)
-    # Replace colons and forward slashes
     title = title.replace(':', ' -').replace('/', '_')
-    # Remove any leading/trailing spaces and dots
     title = title.strip('. ')
     return title
 
 def ensure_directories_exist(content_title=None):
     """Create necessary directories if they don't exist"""
-    # Use a configurable base directory
     base_dir = st.session_state.get("download_path", "C:/YoutubeScraped")
 
-    # Create base directory if it doesn't exist
+
     if not os.path.exists(base_dir):
         os.makedirs(base_dir)
         st.info(f"Created base directory: {base_dir}")
 
-    # If we have content title, create a folder for it
     if content_title:
-        # Sanitize content title for folder name
+
         safe_title = sanitize_filename(content_title)
         content_dir = os.path.join(base_dir, safe_title)
 
-        # Create content directory if it doesn't exist
+
         if not os.path.exists(content_dir):
             os.makedirs(content_dir)
 
-        # Create subdirectories for different content types
+
         subdirs = ['videos', 'thumbnails', 'metadata', 'subtitles']
         for subdir in subdirs:
             full_path = os.path.join(content_dir, subdir)
@@ -104,14 +96,12 @@ def get_content_info(url):
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 result = ydl.extract_info(url, download=False)
-                if 'entries' in result:  # It's a playlist
-                    # Initial playlist data
+                if 'entries' in result:  
                     playlist_info = {'type': 'playlist', 'entries': result['entries'], 'title': result.get('title', 'Unknown Playlist')}
                     
-                    # Use the flat playlist info without fetching details for each video
-                    # This significantly improves performance for large playlists
+
                     return playlist_info
-                else:  # It's a single video
+                else:  
                     return {'type': 'video', 'entries': [result], 'title': result.get('title', 'Unknown Video')}
         except Exception as e:
             st.error(f"Error fetching content: {str(e)}")
@@ -130,37 +120,35 @@ def download_videos(entries, start, end, options, content_dir, playlist_title=No
     status_text = st.empty()
     download_status = st.empty()
     
-    # Prepare format string based on quality
+
     if options['video_quality'] == 'best':
         format_str = 'bestvideo+bestaudio/best'
     elif options['video_quality'] == 'medium':
         format_str = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
     elif options['video_quality'] == 'worst':
         format_str = 'worstvideo+worstaudio/worst'
-    else:  # 'none' - audio only
+    else: 
         format_str = 'bestaudio/best'
 
-    # Prepare directory paths
+
     video_dir = os.path.join(content_dir, 'videos')
     thumbnail_dir = os.path.join(content_dir, 'thumbnails')
     metadata_dir = os.path.join(content_dir, 'metadata')
     subtitles_dir = os.path.join(content_dir, 'subtitles')
 
-    # Prepare output templates based on content type
+
     filename_template = '%(playlist_index)s. %(title)s' if playlist_title and len(selected) > 1 else '%(title)s'
 
-    # Define a custom progress hook
     def progress_hook(d):
         if d['status'] == 'downloading':
             download_status.markdown(f"Downloading: **{os.path.basename(d['filename'])}** - {d.get('_percent_str', '0%')}")
         elif d['status'] == 'finished':
             download_status.markdown(f"✅ Completed: **{os.path.basename(d['filename'])}**")
 
-    # Configure yt-dlp options
     ydl_opts = {
         'format': format_str,
         'progress_hooks': [progress_hook],
-        'noplaylist': True,  # We're handling playlist items individually
+        'noplaylist': True,  
         'restrictfilenames': True,
         'windowsfilenames': True,
         'outtmpl': {
@@ -200,21 +188,20 @@ def download_videos(entries, start, end, options, content_dir, playlist_title=No
             st.error(f"Reason: {str(e)}")
             failed_count += 1
             failed_videos.append(entry['title'])
-            time.sleep(1)  # Pause to let user see the error
+            time.sleep(1)  
             continue
             
     progress_bar.progress(1.0)
     status_text.markdown("✅ **Download complete!**")
     download_status.empty()
-    
-    # Return summary information
+
     return {
         'success_count': success_count,
         'failed_count': failed_count,
         'failed_videos': failed_videos
     }
 
-# Initialize session state variables
+
 if 'download_path' not in st.session_state:
     st.session_state.download_path = "C:/YoutubeScraped"
 if 'video_data' not in st.session_state:
@@ -226,7 +213,6 @@ if 'download_results' not in st.session_state:
 if 'selected_videos' not in st.session_state:
     st.session_state.selected_videos = []
 
-# Sidebar for settings
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/youtube-play.png", width=80)
     st.title("Settings")
