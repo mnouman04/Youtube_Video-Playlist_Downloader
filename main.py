@@ -252,12 +252,11 @@ with st.sidebar:
     
     st.markdown("<p class='small-text'>YouTube Downloader v1.0</p>", unsafe_allow_html=True)
 
-# Main content area
 st.markdown("<h1 class='main-title'>🎬 YouTube Downloader</h1>", unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["📋 URL Input", "🎞️ Select Videos", "📥 Download"])
 
-# Tab 1: URL Input
+# Tab 1: Video Selection and Content Fetching
 with tab1:
     st.write("Enter a YouTube video or playlist URL to begin.")
     url = st.text_input("YouTube URL", placeholder="https://www.youtube.com/watch?v=...")
@@ -283,9 +282,7 @@ with tab1:
         else:
             st.session_state.video_data = []
             for idx, entry in enumerate(content_info['entries']):
-                # For playlist entries, we may not have duration info initially
                 if content_info['type'] == 'playlist':
-                    # Use available duration info or mark as "Unavailable" for playlist items
                     duration = entry.get('duration_string', '')
                     if not duration:
                         if isinstance(entry.get('duration'), (int, float)):
@@ -296,9 +293,8 @@ with tab1:
                             else:
                                 duration = f"{int(minutes)}:{int(seconds):02d}"
                         else:
-                            duration = "Unavailable"  # Changed from "Unknown" for clarity
+                            duration = "Unavailable"  
                 else:
-                    # For single videos, we should have duration info
                     duration = entry.get('duration_string', '')
                     if not duration and 'duration' in entry:
                         minutes, seconds = divmod(entry['duration'], 60)
@@ -315,10 +311,9 @@ with tab1:
                     'title': entry['title'],
                     'duration': duration,
                     'id': entry.get('id', ''),
-                    'selected': True  # Default to selected
+                    'selected': True  
                 })
-            
-            # Update selected videos
+
             st.session_state.selected_videos = [i for i in range(len(content_info['entries']))]
             
             st.success(f"Found content: {content_info['title']}")
@@ -334,7 +329,6 @@ with tab2:
     if st.session_state.video_data:
         st.write("Select the videos you want to download:")
         
-        # Add select/deselect all buttons
         col1, col2, col3 = st.columns([1, 1, 4])
         with col1:
             if st.button("Select All", use_container_width=True):
@@ -350,10 +344,8 @@ with tab2:
                 st.session_state.selected_videos = []
                 st.rerun()
         
-        # Create a DataFrame for display
         df = pd.DataFrame(st.session_state.video_data)
         
-        # Use Streamlit's dataframe for selection
         edited_df = st.data_editor(
             df,
             column_config={
@@ -368,7 +360,6 @@ with tab2:
             use_container_width=True
         )
         
-        # Update the session state with selections
         st.session_state.selected_videos = edited_df[edited_df['selected']].index.tolist()
         
         st.markdown(f"**{len(st.session_state.selected_videos)} videos selected for download**")
@@ -416,10 +407,8 @@ with tab3:
             entries = content_info['entries']
             title = content_info['title']
             
-            # Create selected entries list
             selected_entries = [entries[i] for i in st.session_state.selected_videos]
             
-            # Create content directory with appropriate folder structure
             content_dir = ensure_directories_exist(title)
             
             with st.expander("Download Details", expanded=True):
@@ -428,7 +417,6 @@ with tab3:
                 st.write(f"Selected videos: **{len(selected_entries)}**")
                 st.write(f"Download directory: **{content_dir}**")
                 
-                # Download the selected videos
                 download_results = download_videos(
                     selected_entries, 
                     0, 
@@ -440,7 +428,6 @@ with tab3:
                 
                 st.session_state.download_results = download_results
                 
-                # Display download summary
                 st.subheader("Download Summary")
                 st.markdown(f"✅ Successfully downloaded: **{download_results['success_count']}** videos")
                 st.markdown(f"❌ Failed to download: **{download_results['failed_count']}** videos")
@@ -452,7 +439,6 @@ with tab3:
                 
                 st.success(f"Download completed! Files saved to: **{content_dir}**")
                 
-                # Button to open the download directory
                 if st.button("📂 Open Download Directory", use_container_width=True):
                     os.startfile(content_dir)
     else:
@@ -461,7 +447,7 @@ with tab3:
         elif not st.session_state.selected_videos:
             st.warning("No videos selected. Please select videos in the 'Select Videos' tab.")
 
-# Add a footer
+# footer
 st.divider()
 st.markdown(
     """
