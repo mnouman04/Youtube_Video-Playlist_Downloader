@@ -105,13 +105,19 @@ def get_content_info(url):
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 result = ydl.extract_info(url, download=False)
                 if 'entries' in result:  # It's a playlist
-                    return {'type': 'playlist', 'entries': result['entries'], 'title': result.get('title', 'Unknown Playlist')}
+                    # Initial playlist data
+                    playlist_info = {'type': 'playlist', 'entries': result['entries'], 'title': result.get('title', 'Unknown Playlist')}
+                    
+                    # Use the flat playlist info without fetching details for each video
+                    # This significantly improves performance for large playlists
+                    return playlist_info
                 else:  # It's a single video
                     return {'type': 'video', 'entries': [result], 'title': result.get('title', 'Unknown Video')}
         except Exception as e:
             st.error(f"Error fetching content: {str(e)}")
             return {'type': 'error', 'entries': [], 'title': 'Error'}
-
+        
+        
 def download_videos(entries, start, end, options, content_dir, playlist_title=None):
     """Download selected videos with specified options"""
     selected = list(islice(entries, start, end))
@@ -277,10 +283,37 @@ with tab1:
         else:
             st.session_state.video_data = []
             for idx, entry in enumerate(content_info['entries']):
+                # For playlist entries, we may not have duration info initially
+                if content_info['type'] == 'playlist':
+                    # Use available duration info or mark as "Unavailable" for playlist items
+                    duration = entry.get('duration_string', '')
+                    if not duration:
+                        if isinstance(entry.get('duration'), (int, float)):
+                            minutes, seconds = divmod(entry['duration'], 60)
+                            hours, minutes = divmod(minutes, 60)
+                            if hours > 0:
+                                duration = f"{int(hours)}:{int(minutes):02d}:{int(seconds):02d}"
+                            else:
+                                duration = f"{int(minutes)}:{int(seconds):02d}"
+                        else:
+                            duration = "Unavailable"  # Changed from "Unknown" for clarity
+                else:
+                    # For single videos, we should have duration info
+                    duration = entry.get('duration_string', '')
+                    if not duration and 'duration' in entry:
+                        minutes, seconds = divmod(entry['duration'], 60)
+                        hours, minutes = divmod(minutes, 60)
+                        if hours > 0:
+                            duration = f"{int(hours)}:{int(minutes):02d}:{int(seconds):02d}"
+                        else:
+                            duration = f"{int(minutes)}:{int(seconds):02d}"
+                    elif not duration:
+                        duration = "Unknown"
+                        
                 st.session_state.video_data.append({
                     'index': idx + 1,
                     'title': entry['title'],
-                    'duration': entry.get('duration_string', 'Unknown'),
+                    'duration': duration,
                     'id': entry.get('id', ''),
                     'selected': True  # Default to selected
                 })
