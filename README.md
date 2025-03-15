@@ -7,12 +7,21 @@ A powerful and user-friendly YouTube downloader with a sleek Streamlit interface
 
 ## 📋 Table of Contents
 
-- [About](#about)
-- [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Usage](#usage)
-- [License](#license)
+- [🎬 YouTube Video \& Playlist Downloader](#-youtube-video--playlist-downloader)
+  - [📋 Table of Contents](#-table-of-contents)
+  - [🔍 About](#-about)
+  - [✨ Features](#-features)
+  - [🔧 Requirements](#-requirements)
+  - [📥 Installation](#-installation)
+    - [Using Poetry (Recommended)](#using-poetry-recommended)
+    - [Using pip](#using-pip)
+  - [🚀 Usage](#-usage)
+  - [Disclaimer and Legal Considerations](#disclaimer-and-legal-considerations)
+    - [Educational Purpose](#educational-purpose)
+    - [Appropriate Usage](#appropriate-usage)
+    - [YouTube Terms of Service](#youtube-terms-of-service)
+    - [No Liability](#no-liability)
+    - [Fair Use](#fair-use)
 
 ## 🔍 About
 
@@ -81,9 +90,32 @@ streamlit run main.py
    - Additional content options
 5. Click "Download" and wait for the process to complete
 
-## 📝 License
+## Disclaimer and Legal Considerations
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+### Educational Purpose
+This YouTube Video & Playlist Downloader application is developed strictly for **educational and research purposes**. The project demonstrates concepts related to:
+- Web API integration
+- Video processing workflows
+- User interface development with Streamlit
+- Python application development
+
+### Appropriate Usage
+Users of this application **must ensure** they:
+- Only download content they have explicit permission to download
+- Respect copyright laws and intellectual property rights
+- Follow YouTube's Terms of Service
+- Obtain proper licenses for any commercial use of downloaded content
+- Do not redistribute copyrighted material without authorization
+
+### YouTube Terms of Service
+This tool is not intended to violate YouTube's Terms of Service. According to YouTube's Terms of Service, you should not:
+- Access, reproduce, download, distribute, transmit, broadcast, display, sell, license, alter, modify or otherwise use any part of the Service or any Content except as expressly authorized by the Service or the respective Content owners.
+
+### No Liability
+The developers of this application accept no liability for any misuse of this tool or any violations of terms of service or copyright laws. Users are solely responsible for ensuring their use of this application complies with all relevant laws and regulations.
+
+### Fair Use
+In some jurisdictions, downloading content may be permitted under "fair use" or "fair dealing" provisions for purposes such as criticism, comment, news reporting, teaching, scholarship, or research. However, these exemptions vary by country and users are responsible for understanding the laws applicable to them.
 
 ---
 
