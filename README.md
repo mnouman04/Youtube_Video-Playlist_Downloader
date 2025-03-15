@@ -42,7 +42,6 @@ Tired of complicated YouTube downloaders filled with ads? This open-source YouTu
 - Streamlit
 - yt-dlp
 - pandas
-- Poetry (recommended for dependency management)
 
 ## 📥 Installation
 
