@@ -1,2 +1,6 @@
-# poetry lock file
+# poetry files
 poetry.lock
+pyproject.toml
+
+# gitignore file
+.gitignore
