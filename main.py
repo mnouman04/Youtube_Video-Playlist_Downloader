@@ -5,17 +5,6 @@ import re
 from itertools import islice
 import pandas as pd
 import time
-# Detect if running on Streamlit Cloud
-import os
-is_cloud = os.environ.get('STREAMLIT_SHARING', '') == 'true'
-
-if is_cloud:
-    st.warning("⚠️ Running on Streamlit Cloud - some features may be limited due to platform restrictions.")
-
-# Change this at the beginning of your script
-if 'download_path' not in st.session_state:
-    # Use a platform-independent path that works on Streamlit Cloud
-    st.session_state.download_path = "./downloaded_content"
 
 st.set_page_config(
     page_title="YouTube Downloader",
@@ -429,17 +418,15 @@ with tab3:
                 st.markdown(f"✅ Successfully downloaded: **{download_results['success_count']}** videos")
                 st.markdown(f"❌ Failed to download: **{download_results['failed_count']}** videos")
                 
-                # Replace the failed videos expander section with:
                 if download_results['failed_videos']:
-                    st.subheader("Failed Videos:")
-                    for i, video in enumerate(download_results['failed_videos'], 1):
-                        st.write(f"{i}. {video}")
+                    with st.expander("Failed Videos"):
+                        for i, video in enumerate(download_results['failed_videos'], 1):
+                            st.write(f"{i}. {video}")
                 
                 st.success(f"Download completed! Files saved to: **{content_dir}**")
                 
                 if st.button("📂 Open Download Directory", use_container_width=True):
-                    # Replace the os.startfile(content_dir) line with:
-                    st.info(f"Download completed! On Streamlit Cloud, files are stored temporarily in the app's filesystem.")
+                    os.startfile(content_dir)
     else:
         if not st.session_state.content_info:
             st.info("Enter a URL in the URL Input tab first.")
