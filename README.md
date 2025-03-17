@@ -13,7 +13,6 @@ A powerful and user-friendly YouTube downloader with a sleek Streamlit interface
   - [✨ Features](#-features)
   - [🔧 Requirements](#-requirements)
   - [📥 Installation](#-installation)
-    - [Using Poetry (Recommended)](#using-poetry-recommended)
     - [Using pip](#using-pip)
   - [🚀 Usage](#-usage)
   - [Disclaimer and Legal Considerations](#disclaimer-and-legal-considerations)
@@ -43,23 +42,8 @@ Tired of complicated YouTube downloaders filled with ads? This open-source YouTu
 - Streamlit
 - yt-dlp
 - pandas
-- Poetry (recommended for dependency management)
 
 ## 📥 Installation
-
-### Using Poetry (Recommended)
-
-```bash
-# Clone the repository
-git clone https://github.com/mnouman04/Youtube_Video-Playlist_Downloader.git
-cd Youtube_Video-Playlist_Downloader
-
-# Install dependencies using Poetry
-poetry install
-
-# Run the application
-poetry run streamlit run main.py
-```
 
 ### Using pip
 
